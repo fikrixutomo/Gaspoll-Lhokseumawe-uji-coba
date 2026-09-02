@@ -2,15 +2,16 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import glob
+import io
 
 # 1. Konfigurasi Tampilan
 st.set_page_config(
-    page_title="Dashboard Tunggakan",
+    page_title="Dashboard Tunggakan - JR Lhokseumawe",
     page_icon="🚗",
     layout="wide"
 )
 
-st.title("Dashboard Analisis Tunggakan Kendaraan")
+st.title("Dashboard Analisis Tunggakan Kendaraan — Cabang Lhokseumawe")
 
 # 2. Pemuatan Data Aman (Anti Bad Lines)
 @st.cache_data
@@ -119,7 +120,6 @@ else:
     else:
         selected_pemilik = "Semua Jenis Pemilik"
 
-    # FITUR BARU: Filter Jenis Kendaraan
     if 'kode_jenis_kendaraan_deskripsi' in df.columns:
         val_jenis = df['kode_jenis_kendaraan_deskripsi'].dropna().unique()
         jenis_list = ["Semua Jenis Kendaraan"] + sorted([str(x) for x in val_jenis])
@@ -153,7 +153,6 @@ else:
     if selected_pemilik != "Semua Jenis Pemilik" and 'pemilik_jenis' in df_filtered.columns:
         df_filtered = df_filtered[df_filtered['pemilik_jenis'] == selected_pemilik]
         
-    # FITUR BARU: Terapkan Filter Jenis Kendaraan
     if selected_jenis != "Semua Jenis Kendaraan" and 'kode_jenis_kendaraan_deskripsi' in df_filtered.columns:
         df_filtered = df_filtered[df_filtered['kode_jenis_kendaraan_deskripsi'] == selected_jenis]
         
@@ -227,7 +226,6 @@ else:
     st.markdown("---")
 
     st.subheader("Analisis Pembayaran & Status TL")
-    # Menggunakan 5 Kolom agar Lunas Sudah TL bisa ditambahkan berdampingan
     m1, m2, m3, m4, m5 = st.columns(5)
     m1.metric("Kendaraan Lunas", f"{jml_lunas:,} Unit", f"{persen_lunas:.1f}%")
     m2.metric("Kendaraan Belum Lunas", f"{jml_belum_lunas:,} Unit", f"{persen_belum_lunas:.1f}%", delta_color="inverse")
@@ -314,7 +312,7 @@ else:
 
     st.markdown("---")
 
-    # FITUR BARU: Matriks Jenis Kendaraan
+    # Matriks Jenis Kendaraan
     st.subheader("Matriks Jenis Kendaraan")
     if not df_filtered.empty and 'kode_jenis_kendaraan_deskripsi' in df_filtered.columns:
         df_jenis = df_filtered['kode_jenis_kendaraan_deskripsi'].value_counts().reset_index()
@@ -325,7 +323,7 @@ else:
 
     st.markdown("---")
 
-    # 8. Tabel Detail Data
+    # 8. Tabel Detail Data & Tombol Download
     st.subheader("Tabel Detail Kendaraan")
     st.info("Tips: Klik judul kolom untuk mengurutkan (sort) data.")
     
@@ -338,10 +336,37 @@ else:
     
     st.dataframe(df_filtered[kolom_tampilan], use_container_width=True)
     
-    csv_data = df_filtered.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download Hasil Filter (.CSV)",
-        data=csv_data,
-        file_name="data_tunggakan_filtered.csv",
-        mime="text/csv"
-    )
+    st.markdown("### 📥 Download Hasil Filter Data")
+    dl1, dl2 = st.columns(2)
+    
+    with dl1:
+        try:
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                df_filtered.to_excel(writer, index=False, sheet_name='Data_Tunggakan')
+            st.download_button(
+                label="📊 Download File Excel (.xlsx)",
+                data=buffer.getvalue(),
+                file_name="Hasil_Filter_Tunggakan.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        except Exception:
+            st.warning("Pustaka 'openpyxl' diperlukan untuk ekspor Excel.")
+            
+    with dl2:
+        csv_data = df_filtered.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📄 Download File CSV (.csv)",
+            data=csv_data,
+            file_name="data_tunggakan_filtered.csv",
+            mime="text/csv"
+        )
+
+# ---------------------------------------------------
+# 9. COPYRIGHT FOOTER
+# ---------------------------------------------------
+st.markdown("---")
+st.markdown(
+    "<p style='text-align: center; color: gray;'>© 2026 JRLXFikri - Cabang Lhokseumawe. All rights reserved.</p>",
+    unsafe_allow_html=True
+)
