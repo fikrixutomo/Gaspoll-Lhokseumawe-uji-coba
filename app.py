@@ -8,10 +8,13 @@ import io
 # 1. KONFIGURASI HALAMAN & TAMPILAN
 # ---------------------------------------------------
 st.set_page_config(
-    page_title="Dashboard Analisis Tunggakan - JR Lhokseumawe", 
+    page_title="Dashboard Analisis Tunggakan Instansi - GASPOL", 
     page_icon="🏢", 
     layout="wide"
 )
+
+st.title("🏢 Dashboard Analisis Tunggakan Instansi & Perusahaan")
+st.markdown("Aplikasi monitoring kepatuhan pajak kendaraan khusus instansi, perusahaan, dan badan usaha.")
 
 # ---------------------------------------------------
 # 2. FUNGSI MEMBACA DATA DENGAN PINTAR (SMART LOAD)
@@ -40,7 +43,7 @@ def load_and_combine_data():
     if df_list:
         df_combined = pd.concat(df_list, ignore_index=True)
         
-        # --- STANDARISASI / RENAME KOLOM OTOMATIS ---
+        # Standarisasi penamaan kolom otomatis
         rename_dict = {}
         if 'samsat_asal_nama' in df_combined.columns and 'nama_samsat' not in df_combined.columns:
             rename_dict['samsat_asal_nama'] = 'nama_samsat'
@@ -57,47 +60,21 @@ def load_and_combine_data():
 df = load_and_combine_data()
 
 # ---------------------------------------------------
-# 3. HEADER DASHBOARD
-# ---------------------------------------------------
-st.title("🏢 Dashboard Analisis Tunggakan — Jasa Raharja Lhokseumawe")
-st.markdown("---")
-
-# ---------------------------------------------------
-# 4. PANEL FILTER SIDEBAR (LENGKAP DENGAN SAMSAT)
+# 3. PANEL FILTER SIDEBAR
 # ---------------------------------------------------
 if df.empty:
     st.error("⚠️ Data CSV tidak ditemukan atau gagal dibaca. Pastikan file CSV ada di dalam folder yang sama dengan app.py.")
 else:
     st.sidebar.header("🔍 Filter Data Utama")
     
-    # 1. Filter Kantor Cabang / Wilayah
-    if 'nama_cabang' in df.columns:
-        val_cabang = ["Semua Cabang / Wilayah"] + sorted([str(x) for x in df['nama_cabang'].dropna().unique()])
-        selected_cabang = st.sidebar.selectbox("Kantor Cabang / Wilayah:", val_cabang)
-    else:
-        selected_cabang = "Semua Cabang / Wilayah"
-
-    # 2. Filter Unit Samsat (Dinamis Berdasarkan Cabang)
-    if 'nama_samsat' in df.columns:
-        if selected_cabang != "Semua Cabang / Wilayah" and 'nama_cabang' in df.columns:
-            df_sub = df[df['nama_cabang'] == selected_cabang]
-            val_samsat = sorted([str(x) for x in df_sub['nama_samsat'].dropna().unique()])
-        else:
-            val_samsat = sorted([str(x) for x in df['nama_samsat'].dropna().unique()])
-        
-        samsat_list = ["Semua Samsat"] + val_samsat
-        selected_samsat = st.sidebar.selectbox("Unit Samsat:", samsat_list)
-    else:
-        selected_samsat = "Semua Samsat"
-
-    # 3. Filter Jenis Pemilik
+    # 1. Filter Jenis Pemilik
     if 'pemilik_jenis' in df.columns:
         val_pemilik = ["Semua Jenis Pemilik"] + sorted([str(x) for x in df['pemilik_jenis'].dropna().unique()])
         selected_pemilik = st.sidebar.selectbox("Jenis Pemilik:", val_pemilik)
     else:
         selected_pemilik = "Semua Jenis Pemilik"
 
-    # 4. Filter Nama Pemilik / Instansi
+    # 2. Filter Nama Pemilik / Instansi
     col_perusahaan = 'nama_pemilik_terakhir' if 'nama_pemilik_terakhir' in df.columns else 'nama_instansi' if 'nama_instansi' in df.columns else None
     if col_perusahaan:
         val_nama = ["Semua Nama Pemilik"] + sorted([str(x) for x in df[col_perusahaan].dropna().unique()])
@@ -105,31 +82,34 @@ else:
     else:
         selected_nama = "Semua Nama Pemilik"
 
-    # 5. Filter Status Kendaraan (Lunas / Belum Lunas)
+    # 3. Filter Status Kendaraan (Lunas / Belum Lunas)
     if 'status_bayar' in df.columns:
         val_status = ["Semua Status Bayar"] + sorted([str(x) for x in df['status_bayar'].dropna().unique()])
         selected_status = st.sidebar.selectbox("Status Kendaraan (Lunas/Belum):", val_status)
     else:
         selected_status = "Semua Status Bayar"
 
-    # 6. Filter Status Kunjungan / Tindak Lanjut
+    # 4. Filter Status Kunjungan / Tindak Lanjut
     if 'status_tindak_lanjut' in df.columns:
         val_tl = ["Semua Status Kunjungan"] + sorted([str(x) for x in df['status_tindak_lanjut'].dropna().unique()])
         selected_tl = st.sidebar.selectbox("Status Kunjungan / TL:", val_tl)
     else:
         selected_tl = "Semua Status Kunjungan"
 
+    # 5. Filter Tambahan: Cabang / Wilayah
+    if 'nama_cabang' in df.columns:
+        val_cabang = ["Semua Cabang / Wilayah"] + sorted([str(x) for x in df['nama_cabang'].dropna().unique()])
+        selected_cabang = st.sidebar.selectbox("Kantor Cabang / Wilayah:", val_cabang)
+    else:
+        selected_cabang = "Semua Cabang / Wilayah"
+
     cari_kata = st.sidebar.text_input("Cari No. Polisi:")
 
     # ---------------------------------------------------
-    # 5. TERAPKAN FILTER KE DATASET
+    # 4. TERAPKAN FILTER KE DATASET
     # ---------------------------------------------------
     df_filtered = df.copy()
     
-    if selected_cabang != "Semua Cabang / Wilayah" and 'nama_cabang' in df_filtered.columns:
-        df_filtered = df_filtered[df_filtered['nama_cabang'] == selected_cabang]
-    if selected_samsat != "Semua Samsat" and 'nama_samsat' in df_filtered.columns:
-        df_filtered = df_filtered[df_filtered['nama_samsat'] == selected_samsat]
     if selected_pemilik != "Semua Jenis Pemilik" and 'pemilik_jenis' in df_filtered.columns:
         df_filtered = df_filtered[df_filtered['pemilik_jenis'].astype(str) == selected_pemilik]
     if selected_nama != "Semua Nama Pemilik" and col_perusahaan:
@@ -138,11 +118,13 @@ else:
         df_filtered = df_filtered[df_filtered['status_bayar'].astype(str) == selected_status]
     if selected_tl != "Semua Status Kunjungan" and 'status_tindak_lanjut' in df_filtered.columns:
         df_filtered = df_filtered[df_filtered['status_tindak_lanjut'].astype(str) == selected_tl]
+    if selected_cabang != "Semua Cabang / Wilayah" and 'nama_cabang' in df_filtered.columns:
+        df_filtered = df_filtered[df_filtered['nama_cabang'] == selected_cabang]
     if cari_kata and 'no_polisi' in df_filtered.columns:
         df_filtered = df_filtered[df_filtered['no_polisi'].astype(str).str.contains(cari_kata, case=False, na=False)]
 
     # ---------------------------------------------------
-    # 6. RINGKASAN MATRIKS & KPI
+    # 5. RINGKASAN MATRIKS & KPI
     # ---------------------------------------------------
     total_kendaraan = len(df_filtered)
     
@@ -156,7 +138,7 @@ else:
     persen_lunas = (jml_lunas / total_kendaraan * 100) if total_kendaraan > 0 else 0
     persen_belum_lunas = (jml_belum_lunas / total_kendaraan * 100) if total_kendaraan > 0 else 0
 
-    st.subheader(f"📊 Ringkasan Matriks Utama ({selected_cabang} — {selected_samsat})")
+    st.subheader(f"📊 Ringkasan Matriks Utama ({selected_cabang})")
     
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Kendaraan Terfilter", f"{total_kendaraan:,} Unit")
@@ -167,7 +149,7 @@ else:
     st.markdown("---")
 
     # ---------------------------------------------------
-    # 7. MATRIKS TAMBAHAN: GOLONGAN & JENIS PEMILIK
+    # 6. MATRIKS TAMBAHAN: GOLONGAN & JENIS PEMILIK
     # ---------------------------------------------------
     st.subheader("📌 Matriks Detail: Golongan & Jenis Pemilik")
     
@@ -195,7 +177,7 @@ else:
     st.markdown("---")
 
     # ---------------------------------------------------
-    # 8. TABEL DETAIL & DOWNLOAD (EXCEL & CSV)
+    # 7. TABEL DETAIL & DOWNLOAD (EXCEL & CSV)
     # ---------------------------------------------------
     st.subheader("📋 Tabel Detail Kendaraan")
     kolom_tampilan = [c for c in [
@@ -213,11 +195,11 @@ else:
         try:
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                df_filtered.to_excel(writer, index=False, sheet_name='Data_JR_Lhokseumawe')
+                df_filtered.to_excel(writer, index=False, sheet_name='Data_Instansi')
             st.download_button(
                 label="📊 Download File Excel (.xlsx)",
                 data=buffer.getvalue(),
-                file_name="Hasil_Filter_JR_Lhokseumawe.xlsx",
+                file_name="Hasil_Filter_Instansi.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
         except Exception:
@@ -228,15 +210,15 @@ else:
         st.download_button(
             label="📄 Download File CSV (.csv)",
             data=csv_data,
-            file_name="Hasil_Filter_JR_Lhokseumawe.csv",
+            file_name="Hasil_Filter_Instansi.csv",
             mime="text/csv"
         )
 
 # ---------------------------------------------------
-# 9. COPYRIGHT FOOTER
+# 8. COPYRIGHT FOOTER
 # ---------------------------------------------------
 st.markdown("---")
 st.markdown(
-    "<p style='text-align: center; color: gray;'>© 2026 JRLX Fikri - Jasa Raharja Lhokseumawe. All rights reserved.</p>",
+    "<p style='text-align: center; color: gray;'>© 2026 JRLX Fikri - Jasa Raharja. All rights reserved.</p>",
     unsafe_allow_html=True
 )
