@@ -174,7 +174,7 @@ else:
     else:
         persen_hp_valid = 0.0
 
-    # LOGIKA PERHITUNGAN STATUS & COVERAGE
+    # LOGIKA PERHITUNGAN STATUS, COVERAGE & CONVERSION
     if 'status_bayar' in df_filtered.columns and 'status_tindak_lanjut' in df_filtered.columns:
         s_bayar = df_filtered['status_bayar'].astype(str).str.strip().str.upper()
         s_tl = df_filtered['status_tindak_lanjut'].astype(str).str.strip().str.upper()
@@ -195,17 +195,23 @@ else:
         
         total_sdh_tl = len(df_filtered[cond_sdh_tl])
         
-        # Hitung Conversion Rate
-        if total_sdh_tl > 0:
-            conversion_rate = (jml_lunas_sdh_tl / total_sdh_tl) * 100
-        else:
-            conversion_rate = 0.0
-            
-        # Hitung Coverage Rate
+        # Coverage Rate = Jumlah TL / Total Kendaraan
         if total_kendaraan > 0:
             coverage_rate = (total_sdh_tl / total_kendaraan) * 100
         else:
             coverage_rate = 0.0
+
+        # Conversion Rate (Versi Custom) = Jumlah TL / Jumlah Lunas
+        if jml_lunas > 0:
+            conversion_rate = (total_sdh_tl / jml_lunas) * 100
+        else:
+            conversion_rate = 0.0
+            
+        # Efektivitas TL (Versi Standar) = Lunas Sudah TL / Jumlah TL
+        if total_sdh_tl > 0:
+            efektivitas_tl = (jml_lunas_sdh_tl / total_sdh_tl) * 100
+        else:
+            efektivitas_tl = 0.0
             
     else:
         jml_lunas = 0
@@ -216,6 +222,7 @@ else:
         jml_lunas_sdh_tl = 0
         conversion_rate = 0.0
         coverage_rate = 0.0
+        efektivitas_tl = 0.0
 
     if total_kendaraan > 0:
         persen_lunas = (jml_lunas / total_kendaraan) * 100
@@ -231,7 +238,7 @@ else:
     c1.metric("Total Kendaraan", f"{total_kendaraan:,} Unit")
     c2.metric("Conversion Rate", f"{conversion_rate:.1f}%")
     c3.metric("Coverage Rate", f"{coverage_rate:.1f}%")
-    c4.metric("Efektivitas TL", f"{conversion_rate:.1f}%") 
+    c4.metric("Efektivitas TL", f"{efektivitas_tl:.1f}%") 
     c5.metric("Nomor HP Valid", f"{hp_valid:,} Unit")
     c6.metric("Rasio HP Valid", f"{persen_hp_valid:.1f}%")
 
