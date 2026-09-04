@@ -34,7 +34,6 @@ def load_and_combine_data():
     df_list = []
     for file in file_list:
         try:
-            # sep=None otomatis mendeteksi koma (,) atau titik koma (;)
             df_temp = pd.read_csv(file, sep=None, engine='python', on_bad_lines='skip')
             df_list.append(df_temp)
         except Exception as e:
@@ -43,7 +42,6 @@ def load_and_combine_data():
     if df_list:
         df_combined = pd.concat(df_list, ignore_index=True)
         
-        # Standarisasi nama kolom otomatis
         rename_dict = {}
         if 'samsat_asal_nama' in df_combined.columns and 'nama_samsat' not in df_combined.columns:
             rename_dict['samsat_asal_nama'] = 'nama_samsat'
@@ -88,7 +86,7 @@ else:
     else:
         selected_cabang = "Semua Cabang / Wilayah"
 
-    # 2. Filter Samsat (Dinamis berdasarkan Cabang)
+    # 2. Filter Samsat
     if 'nama_samsat' in df.columns:
         if selected_cabang != "Semua Cabang / Wilayah" and 'nama_cabang' in df.columns:
             df_sub = df[df['nama_cabang'] == selected_cabang]
@@ -114,14 +112,14 @@ else:
     else:
         selected_nama = "Semua Nama Pemilik"
 
-    # 5. Filter Status Pembayaran (Lunas / Belum Lunas)
+    # 5. Filter Status Pembayaran
     if 'status_bayar' in df.columns:
         val_bayar = ["Semua Status Bayar"] + sorted([str(x) for x in df['status_bayar'].dropna().unique()])
         selected_bayar = st.sidebar.selectbox("Status Pembayaran:", val_bayar)
     else:
         selected_bayar = "Semua Status Bayar"
 
-    # 6. Filter Status Tindak Lanjut / Kunjungan
+    # 6. Filter Status Tindak Lanjut
     if 'status_tindak_lanjut' in df.columns:
         val_tl = ["Semua Status TL"] + sorted([str(x) for x in df['status_tindak_lanjut'].dropna().unique()])
         selected_tl = st.sidebar.selectbox("Status Tindak Lanjut:", val_tl)
@@ -135,7 +133,7 @@ else:
     else:
         selected_tunggakan = "Semua Kelompok"
 
-    # 8. Pencarian Cepat Teks (Plat / Nama)
+    # 8. Pencarian Cepat Teks
     cari_kata = st.sidebar.text_input("Cari Plat / Nama:")
 
     # ---------------------------------------------------
@@ -163,7 +161,7 @@ else:
         df_filtered = df_filtered[cond_plat | cond_nama]
 
     # ---------------------------------------------------
-    # 6. PERHITUNGAN MATRIKS (KPI & KINERJA)
+    # 6. PERHITUNGAN MATRIKS (COVERAGE & CONVERSION REVISI)
     # ---------------------------------------------------
     total_kendaraan = len(df_filtered)
 
@@ -181,16 +179,15 @@ else:
         jml_belum_lunas = len(df_filtered[cond_blm_lunas])
 
         total_sdh_tl = len(df_filtered[cond_sdh_tl])
+        jml_lunas_sdh_tl = len(df_filtered[cond_lunas & cond_sdh_tl])
         
-        # Coverage Rate = Jumlah TL / Total Kendaraan
+        # 1. Coverage Rate = Total Kendaraan Sudah TL / Total Kendaraan
         coverage_rate = (total_sdh_tl / total_kendaraan * 100) if total_kendaraan > 0 else 0.0
 
-        # Conversion Rate = Jumlah TL / Jumlah Lunas
-        conversion_rate = (total_sdh_tl / jml_lunas * 100) if jml_lunas > 0 else 0.0
+        # 2. Conversion Rate (REVISI BARU) = Lunas Sudah TL / Total Kendaraan Sudah TL
+        conversion_rate = (jml_lunas_sdh_tl / total_sdh_tl * 100) if total_sdh_tl > 0 else 0.0
             
-        # Efektivitas TL = Lunas Sudah TL / Jumlah TL
-        jml_lunas_sdh_tl = len(df_filtered[cond_lunas & cond_sdh_tl])
-        efektivitas_tl = (jml_lunas_sdh_tl / total_sdh_tl * 100) if total_sdh_tl > 0 else 0.0
+        efektivitas_tl = conversion_rate
         
         jml_lunas_blm_tl = len(df_filtered[cond_lunas & cond_blm_tl])
         jml_blm_lunas_sdh_tl = len(df_filtered[cond_blm_lunas & cond_sdh_tl])
