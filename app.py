@@ -2,26 +2,21 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import glob
+import io
 
-# ---------------------------------------------------
-# 1. KONFIGURASI HALAMAN & TAMPILAN
-# ---------------------------------------------------
+# 1. Konfigurasi Tampilan
 st.set_page_config(
-    page_title="Dashboard Tunggakan Kendaraan - GASPOL",
+    page_title="Dashboard GASPOLL - JR ACEH",
     page_icon="🚗",
     layout="wide"
 )
 
-st.title("🚗 Dashboard Interaktif Analisis Tunggakan Kendaraan")
-st.markdown("Aplikasi ini otomatis membaca dan menggabungkan seluruh data CSV bagian (`part`) di dalam folder proyek Anda.")
+st.title("Dashboard Analisis GASPOLL — ACEH")
 
-# ---------------------------------------------------
-# 2. PEMUATAN DATA AMAN & PINTAR (SMART LOAD)
-# ---------------------------------------------------
-@st.cache_data(ttl=600)
+# 2. Pemuatan Data Aman (Anti Bad Lines)
+@st.cache_data
 def load_and_combine_data():
     file_list = glob.glob("*.csv")
-    # Saring file pendukung agar tidak ikut terbaca sebagai data utama
     file_list = [
         f for f in file_list 
         if "Kode Plat" not in f 
@@ -35,15 +30,15 @@ def load_and_combine_data():
     df_list = []
     for file in file_list:
         try:
-            df_temp = pd.read_csv(file, sep=None, engine='python', on_bad_lines='skip')
+            df_temp = pd.read_csv(file, sep=";", on_bad_lines='skip', engine='python')
+            if df_temp.shape[1] <= 1:
+                df_temp = pd.read_csv(file, sep=",", on_bad_lines='skip', engine='python')
             df_list.append(df_temp)
         except Exception as e:
-            st.warning(f"⚠️ Gagal membaca file {file}: {e}")
+            st.warning(f"Gagal membaca file {file}: {e}")
             
     if df_list:
         df_combined = pd.concat(df_list, ignore_index=True)
-        
-        # Standarisasi penamaan kolom otomatis
         rename_dict = {}
         if 'samsat_asal_nama' in df_combined.columns and 'nama_samsat' not in df_combined.columns:
             rename_dict['samsat_asal_nama'] = 'nama_samsat'
@@ -54,15 +49,14 @@ def load_and_combine_data():
             df_combined = df_combined.rename(columns=rename_dict)
             
         return df_combined
-    else:
-        return pd.DataFrame()
+        
+    return pd.DataFrame()
 
 df = load_and_combine_data()
 
 if df.empty:
-    st.error("⚠️ File CSV tidak ditemukan atau gagal dibaca! Pastikan file CSV data kendaraan berada di folder yang sama dengan app.py.")
+    st.error("File CSV tidak ditemukan atau gagal dibaca.")
 else:
-    # Identifikasi kolom status HP yang tersedia
     if 'flag_nomor_hp_valid' in df.columns:
         col_hp_name = 'flag_nomor_hp_valid'
     elif 'status_nomor_hp_valid' in df.columns:
@@ -70,12 +64,9 @@ else:
     else:
         col_hp_name = None
 
-    # ---------------------------------------------------
-    # 3. PANEL FILTER SIDEBAR (SESUAI GAMBAR)
-    # ---------------------------------------------------
-    st.sidebar.header("🔍 Filter Data Utama")
+    # 3. Sidebar Filter Utama 
+    st.sidebar.header("Filter Data")
     
-    # 1. Filter Cabang / Wilayah
     if 'nama_cabang' in df.columns:
         val_cabang = df['nama_cabang'].dropna().unique()
         cabang_list = ["Semua Cabang / Wilayah"] + sorted([str(x) for x in val_cabang])
@@ -83,7 +74,6 @@ else:
     else:
         selected_cabang = "Semua Cabang / Wilayah"
 
-    # 2. Filter Samsat (Dinamis berdasarkan Cabang)
     if 'nama_samsat' in df.columns:
         if selected_cabang != "Semua Cabang / Wilayah" and 'nama_cabang' in df.columns:
             df_sub = df[df['nama_cabang'] == selected_cabang]
@@ -95,7 +85,6 @@ else:
     else:
         selected_samsat = "Semua Samsat"
 
-    # 3. Filter Masa Tunggakan
     if 'kelompok_selisih_hari_tunggakan' in df.columns:
         val_tunggakan = df['kelompok_selisih_hari_tunggakan'].dropna().unique()
         tunggakan_list = ["Semua Kelompok"] + sorted([str(x) for x in val_tunggakan])
@@ -103,7 +92,6 @@ else:
     else:
         selected_tunggakan = "Semua Kelompok"
 
-    # 4. Filter Status HP
     if col_hp_name and col_hp_name in df.columns:
         val_hp = df[col_hp_name].dropna().unique()
         hp_list = ["Semua Status HP"] + sorted([str(x) for x in val_hp])
@@ -111,7 +99,6 @@ else:
     else:
         selected_hp = "Semua Status HP"
 
-    # 5. Filter Status Pembayaran
     if 'status_bayar' in df.columns:
         val_bayar = df['status_bayar'].dropna().unique()
         bayar_list = ["Semua Status Bayar"] + sorted([str(x) for x in val_bayar])
@@ -119,7 +106,6 @@ else:
     else:
         selected_bayar = "Semua Status Bayar"
 
-    # 6. Filter Status Tindak Lanjut
     if 'status_tindak_lanjut' in df.columns:
         val_tl = df['status_tindak_lanjut'].dropna().unique()
         tl_list = ["Semua Status TL"] + sorted([str(x) for x in val_tl])
@@ -127,7 +113,6 @@ else:
     else:
         selected_tl = "Semua Status TL"
 
-    # 7. Filter Jenis Pemilik
     if 'pemilik_jenis' in df.columns:
         val_pemilik = df['pemilik_jenis'].dropna().unique()
         pemilik_list = ["Semua Jenis Pemilik"] + sorted([str(x) for x in val_pemilik])
@@ -135,7 +120,6 @@ else:
     else:
         selected_pemilik = "Semua Jenis Pemilik"
 
-    # 8. Filter Jenis Kendaraan
     if 'kode_jenis_kendaraan_deskripsi' in df.columns:
         val_jenis = df['kode_jenis_kendaraan_deskripsi'].dropna().unique()
         jenis_list = ["Semua Jenis Kendaraan"] + sorted([str(x) for x in val_jenis])
@@ -143,38 +127,41 @@ else:
     else:
         selected_jenis = "Semua Jenis Kendaraan"
 
-    # 9. Cari Plat / Nama
     cari_kata = st.sidebar.text_input("Cari Plat / Nama:")
 
-    # ---------------------------------------------------
-    # 4. TERAPKAN FILTER KE DATASET
-    # ---------------------------------------------------
+    # 4. Terapkan Filter
     df_filtered = df.copy()
     
     if selected_cabang != "Semua Cabang / Wilayah" and 'nama_cabang' in df_filtered.columns:
         df_filtered = df_filtered[df_filtered['nama_cabang'] == selected_cabang]
+        
     if selected_samsat != "Semua Samsat" and 'nama_samsat' in df_filtered.columns:
         df_filtered = df_filtered[df_filtered['nama_samsat'] == selected_samsat]
+        
     if selected_tunggakan != "Semua Kelompok" and 'kelompok_selisih_hari_tunggakan' in df_filtered.columns:
         df_filtered = df_filtered[df_filtered['kelompok_selisih_hari_tunggakan'] == selected_tunggakan]
+        
     if selected_hp != "Semua Status HP" and col_hp_name and col_hp_name in df_filtered.columns:
         df_filtered = df_filtered[df_filtered[col_hp_name] == selected_hp]
+        
     if selected_bayar != "Semua Status Bayar" and 'status_bayar' in df_filtered.columns:
         df_filtered = df_filtered[df_filtered['status_bayar'] == selected_bayar]
+
     if selected_tl != "Semua Status TL" and 'status_tindak_lanjut' in df_filtered.columns:
         df_filtered = df_filtered[df_filtered['status_tindak_lanjut'] == selected_tl]
+
     if selected_pemilik != "Semua Jenis Pemilik" and 'pemilik_jenis' in df_filtered.columns:
         df_filtered = df_filtered[df_filtered['pemilik_jenis'] == selected_pemilik]
+        
     if selected_jenis != "Semua Jenis Kendaraan" and 'kode_jenis_kendaraan_deskripsi' in df_filtered.columns:
         df_filtered = df_filtered[df_filtered['kode_jenis_kendaraan_deskripsi'] == selected_jenis]
+        
     if cari_kata:
         cond_plat = df_filtered['no_polisi'].astype(str).str.contains(cari_kata, case=False, na=False) if 'no_polisi' in df_filtered.columns else False
         cond_nama = df_filtered['nama_pemilik_terakhir'].astype(str).str.contains(cari_kata, case=False, na=False) if 'nama_pemilik_terakhir' in df_filtered.columns else False
         df_filtered = df_filtered[cond_plat | cond_nama]
 
-    # ---------------------------------------------------
-    # 5. HITUNG METRIK KPI & ANALISIS
-    # ---------------------------------------------------
+    # 5. Hitung Metrik KPI
     total_kendaraan = len(df_filtered)
     
     if col_hp_name and col_hp_name in df_filtered.columns:
@@ -182,9 +169,12 @@ else:
     else:
         hp_valid = 0
         
-    persen_hp_valid = (hp_valid / total_kendaraan * 100) if total_kendaraan > 0 else 0.0
+    if total_kendaraan > 0:
+        persen_hp_valid = (hp_valid / total_kendaraan) * 100
+    else:
+        persen_hp_valid = 0.0
 
-    # Logika Kalkulasi Status Pembayaran & Tindak Lanjut
+    # LOGIKA PERHITUNGAN STATUS & COVERAGE
     if 'status_bayar' in df_filtered.columns and 'status_tindak_lanjut' in df_filtered.columns:
         s_bayar = df_filtered['status_bayar'].astype(str).str.strip().str.upper()
         s_tl = df_filtered['status_tindak_lanjut'].astype(str).str.strip().str.upper()
@@ -204,24 +194,46 @@ else:
         jml_lunas_sdh_tl = len(df_filtered[cond_lunas & cond_sdh_tl]) 
         
         total_sdh_tl = len(df_filtered[cond_sdh_tl])
-        conversion_rate = (jml_lunas_sdh_tl / total_sdh_tl * 100) if total_sdh_tl > 0 else 0.0
+        
+        # Hitung Conversion Rate
+        if total_sdh_tl > 0:
+            conversion_rate = (jml_lunas_sdh_tl / total_sdh_tl) * 100
+        else:
+            conversion_rate = 0.0
+            
+        # Hitung Coverage Rate
+        if total_kendaraan > 0:
+            coverage_rate = (total_sdh_tl / total_kendaraan) * 100
+        else:
+            coverage_rate = 0.0
+            
     else:
-        jml_lunas = jml_belum_lunas = jml_blm_lunas_sdh_tl = jml_lunas_blm_tl = jml_blm_lunas_blm_tl = jml_lunas_sdh_tl = 0
+        jml_lunas = 0
+        jml_belum_lunas = 0
+        jml_blm_lunas_sdh_tl = 0
+        jml_lunas_blm_tl = 0
+        jml_blm_lunas_blm_tl = 0
+        jml_lunas_sdh_tl = 0
         conversion_rate = 0.0
+        coverage_rate = 0.0
 
-    persen_lunas = (jml_lunas / total_kendaraan * 100) if total_kendaraan > 0 else 0.0
-    persen_belum_lunas = (jml_belum_lunas / total_kendaraan * 100) if total_kendaraan > 0 else 0.0
+    if total_kendaraan > 0:
+        persen_lunas = (jml_lunas / total_kendaraan) * 100
+        persen_belum_lunas = (jml_belum_lunas / total_kendaraan) * 100
+    else:
+        persen_lunas = 0.0
+        persen_belum_lunas = 0.0
 
-    # ---------------------------------------------------
-    # 6. TAMPILAN KPI CARDS
-    # ---------------------------------------------------
-    st.subheader(f"📊 Ringkasan Indikator Utama ({selected_cabang})")
+    # 6. Tampilan KPI Cards (6 Kolom Berdampingan Sesuai Permintaan)
+    st.subheader(f"Ringkasan Indikator Utama ({selected_cabang})")
     
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
     c1.metric("Total Kendaraan", f"{total_kendaraan:,} Unit")
-    c2.metric("Nomor HP Valid", f"{hp_valid:,} Unit")
-    c3.metric("Rasio HP Valid", f"{persen_hp_valid:.1f}%")
-    c4.metric("Efektivitas TL", f"{conversion_rate:.1f}%")
+    c2.metric("Conversion Rate", f"{conversion_rate:.1f}%")
+    c3.metric("Coverage Rate", f"{coverage_rate:.1f}%")
+    c4.metric("Efektivitas TL", f"{conversion_rate:.1f}%") 
+    c5.metric("Nomor HP Valid", f"{hp_valid:,} Unit")
+    c6.metric("Rasio HP Valid", f"{persen_hp_valid:.1f}%")
 
     st.markdown("---")
 
@@ -234,14 +246,12 @@ else:
     m5.metric("Belum Lunas Sudah TL", f"{jml_blm_lunas_sdh_tl:,} Unit")
 
     if jml_blm_lunas_blm_tl > 0:
-        st.warning(f"⚠️ Beban Kerja: Terdapat {jml_blm_lunas_blm_tl:,} Unit kendaraan belum lunas & belum ditindaklanjuti.")
+        st.warning(f"Beban Kerja: Terdapat {jml_blm_lunas_blm_tl:,} Unit belum lunas & belum TL.")
 
     st.markdown("---")
 
-    # ---------------------------------------------------
-    # 7. VISUALISASI GRAFIS
-    # ---------------------------------------------------
-    st.subheader("📈 Visualisasi Grafik Analisis")
+    # 7. Visualisasi Grafis
+    st.subheader("Visualisasi Grafis")
     
     row1_col1, row1_col2 = st.columns(2)
 
@@ -314,11 +324,20 @@ else:
 
     st.markdown("---")
 
-    # ---------------------------------------------------
-    # 8. TABEL DETAIL & DOWNLOAD
-    # ---------------------------------------------------
-    st.subheader("📋 Tabel Detail Kendaraan")
-    st.info("💡 **Tips:** Klik judul kolom pada tabel untuk mengurutkan (sort) data secara instan.")
+    # Matriks Jenis Kendaraan
+    st.subheader("Matriks Jenis Kendaraan")
+    if not df_filtered.empty and 'kode_jenis_kendaraan_deskripsi' in df_filtered.columns:
+        df_jenis = df_filtered['kode_jenis_kendaraan_deskripsi'].value_counts().reset_index()
+        df_jenis.columns = ['Jenis Kendaraan', 'Jumlah Unit']
+        st.dataframe(df_jenis, use_container_width=True, hide_index=True)
+    else:
+        st.info("Data jenis kendaraan tidak ditemukan.")
+
+    st.markdown("---")
+
+    # 8. Tabel Detail Data & Tombol Download
+    st.subheader("Tabel Detail Kendaraan")
+    st.info("Tips: Klik judul kolom untuk mengurutkan (sort) data.")
     
     kolom_tampilan = [c for c in [
         'no_polisi', 'nama_pemilik_terakhir', 'pemilik_jenis', 'nama_samsat', 'nama_cabang', 
@@ -329,11 +348,37 @@ else:
     
     st.dataframe(df_filtered[kolom_tampilan], use_container_width=True)
     
-    # Tombol Unduh CSV
-    csv_data = df_filtered.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="📥 Download Hasil Filter Data Ini (.CSV)",
-        data=csv_data,
-        file_name="data_tunggakan_filtered.csv",
-        mime="text/csv"
-    )
+    st.markdown("### 📥 Download Hasil Filter Data")
+    dl1, dl2 = st.columns(2)
+    
+    with dl1:
+        try:
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                df_filtered.to_excel(writer, index=False, sheet_name='Data_Tunggakan')
+            st.download_button(
+                label="📊 Download File Excel (.xlsx)",
+                data=buffer.getvalue(),
+                file_name="Hasil_Filter_Tunggakan.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        except Exception:
+            st.warning("Pustaka 'openpyxl' diperlukan untuk ekspor Excel.")
+            
+    with dl2:
+        csv_data = df_filtered.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📄 Download File CSV (.csv)",
+            data=csv_data,
+            file_name="data_tunggakan_filtered.csv",
+            mime="text/csv"
+        )
+
+# ---------------------------------------------------
+# 9. COPYRIGHT FOOTER
+# ---------------------------------------------------
+st.markdown("---")
+st.markdown(
+    "<p style='text-align: center; color: gray;'>© 2026 JRLXFikri - Cabang Lhokseumawe. All rights reserved.</p>",
+    unsafe_allow_html=True
+)
