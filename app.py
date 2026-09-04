@@ -10,7 +10,7 @@ import io
 URL_LOGO_JR = "logo_jasa_raharja.png" 
 
 st.set_page_config(
-    page_title="Dashboard Analisis Tunggakan GASPOL",
+    page_title="Dashboard Analisis Tunggakan GASPOLL",
     page_icon="🚗",
     layout="wide"
 )
@@ -67,7 +67,7 @@ with col_logo:
     except:
         st.markdown("<h1>🚗</h1>", unsafe_allow_html=True)
 with col_title:
-    st.title("Dashboard Analisis Tunggakan Kendaraan & Instansi")
+    st.title("Dashboard Analisis GASPOLL")
 
 st.markdown("---")
 
