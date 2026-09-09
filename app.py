@@ -34,6 +34,7 @@ def load_and_combine_data():
     df_list = []
     for file in file_list:
         try:
+            # Mencoba membaca dengan pemisah titik koma (;) atau koma (,) secara otomatis
             df_temp = pd.read_csv(file, sep=None, engine='python', on_bad_lines='skip')
             df_list.append(df_temp)
         except Exception as e:
@@ -161,7 +162,7 @@ else:
         df_filtered = df_filtered[cond_plat | cond_nama]
 
     # ---------------------------------------------------
-    # 6. PERHITUNGAN MATRIKS (COVERAGE & CONVERSION REVISI)
+    # 6. PERHITUNGAN MATRIKS (COVERAGE & CONVERSION)
     # ---------------------------------------------------
     total_kendaraan = len(df_filtered)
 
@@ -181,10 +182,10 @@ else:
         total_sdh_tl = len(df_filtered[cond_sdh_tl])
         jml_lunas_sdh_tl = len(df_filtered[cond_lunas & cond_sdh_tl])
         
-        # 1. Coverage Rate = Total Kendaraan Sudah TL / Total Kendaraan
+        # 1. Coverage Rate
         coverage_rate = (total_sdh_tl / total_kendaraan * 100) if total_kendaraan > 0 else 0.0
 
-        # 2. Conversion Rate (REVISI BARU) = Lunas Sudah TL / Total Kendaraan Sudah TL
+        # 2. Conversion Rate
         conversion_rate = (jml_lunas_sdh_tl / total_sdh_tl * 100) if total_sdh_tl > 0 else 0.0
             
         efektivitas_tl = conversion_rate
