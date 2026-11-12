@@ -8,21 +8,13 @@ import io
 # 1. KONFIGURASI HALAMAN & TAMPILAN
 # ---------------------------------------------------
 st.set_page_config(
-    page_title="Dashboard Analisis GASPOLL - ACEH", 
-    page_icon="🚗", 
+    page_title="Dashboard Analisis Tunggakan GASPOLL",
+    page_icon="🚗",
     layout="wide"
 )
 
-col_logo, col_title = st.columns([1, 8])
-with col_logo:
-    st.markdown("<h1>🚗</h1>", unsafe_allow_html=True)
-with col_title:
-    st.title("Dashboard Analisis GASPOLL — ACEH")
-
-st.markdown("---")
-
 # ---------------------------------------------------
-# 2. PEMUATAN DATA HEMAT MEMORI (C-ENGINE FAST LOAD)
+# 2. PEMUATAN DATA AMAN DENGAN KOMPRESI MEMORI (ANTI-CRASH)
 # ---------------------------------------------------
 @st.cache_data(ttl=600)
 def load_and_combine_data():
@@ -40,10 +32,19 @@ def load_and_combine_data():
     df_list = []
     for file in file_list:
         try:
-            # Menggunakan C-Engine cepat (Mencoba ';' dulu, jika 1 kolom pindah ke ',')
+            # Membaca dengan engine C yang hemat memori
             df_temp = pd.read_csv(file, sep=";", on_bad_lines='skip', low_memory=True)
             if df_temp.shape[1] <= 1:
                 df_temp = pd.read_csv(file, sep=",", on_bad_lines='skip', low_memory=True)
+                
+            # OPTIMASI MEMORI EKSTREM: 
+            # Ubah tipe data teks menjadi kategori untuk memangkas penggunaan RAM hingga 70%
+            for col in df_temp.select_dtypes(include=['object']).columns:
+                num_unique = df_temp[col].nunique()
+                num_total = len(df_temp[col])
+                if num_total > 0 and (num_unique / num_total) < 0.5:
+                    df_temp[col] = df_temp[col].astype('category')
+                    
             df_list.append(df_temp)
         except Exception as e:
             st.warning(f"⚠️ Gagal membaca file {file}: {e}")
@@ -51,7 +52,6 @@ def load_and_combine_data():
     if df_list:
         df_combined = pd.concat(df_list, ignore_index=True)
         
-        # Standarisasi Nama Kolom Otomatis
         rename_dict = {}
         if 'samsat_asal_nama' in df_combined.columns and 'nama_samsat' not in df_combined.columns:
             rename_dict['samsat_asal_nama'] = 'nama_samsat'
@@ -62,33 +62,45 @@ def load_and_combine_data():
             df_combined = df_combined.rename(columns=rename_dict)
             
         return df_combined
-    return pd.DataFrame()
+    else:
+        return pd.DataFrame()
 
 df = load_and_combine_data()
 
 # ---------------------------------------------------
-# 3. PANEL FILTER SIDEBAR
+# 3. HEADER DASHBOARD
+# ---------------------------------------------------
+col_logo, col_title = st.columns([1, 8])
+with col_logo:
+    st.markdown("<h1>🚗</h1>", unsafe_allow_html=True)
+with col_title:
+    st.title("Dashboard Analisis GASPOLL — ACEH")
+
+st.markdown("---")
+
+# ---------------------------------------------------
+# 4. PANEL FILTER SIDEBAR
 # ---------------------------------------------------
 if df.empty:
     st.error("⚠️ Data CSV tidak ditemukan atau gagal dibaca. Pastikan file CSV ada di folder yang sama dengan app.py.")
 else:
     st.sidebar.header("🔍 Filter Data Utama")
     
-    # 1. Filter Cabang / Wilayah
+    # 1. Filter Cabang
     if 'nama_cabang' in df.columns:
         val_cabang = ["Semua Cabang / Wilayah"] + sorted([str(x) for x in df['nama_cabang'].dropna().unique()])
         selected_cabang = st.sidebar.selectbox("Pilih Cabang / Wilayah:", val_cabang)
     else:
         selected_cabang = "Semua Cabang / Wilayah"
 
-    # 2. Filter Unit Samsat (Dinamis berdasarkan Cabang)
+    # 2. Filter Samsat
     if 'nama_samsat' in df.columns:
         if selected_cabang != "Semua Cabang / Wilayah" and 'nama_cabang' in df.columns:
             df_sub = df[df['nama_cabang'] == selected_cabang]
-            val_samsat = sorted([str(x) for x in df_sub['nama_samsat'].dropna().unique()])
+            val_samsat = ["Semua Samsat"] + sorted([str(x) for x in df_sub['nama_samsat'].dropna().unique()])
         else:
-            val_samsat = sorted([str(x) for x in df['nama_samsat'].dropna().unique()])
-        selected_samsat = st.sidebar.selectbox("Samsat:", ["Semua Samsat"] + val_samsat)
+            val_samsat = ["Semua Samsat"] + sorted([str(x) for x in df['nama_samsat'].dropna().unique()])
+        selected_samsat = st.sidebar.selectbox("Samsat:", val_samsat)
     else:
         selected_samsat = "Semua Samsat"
 
@@ -114,7 +126,7 @@ else:
     else:
         selected_bayar = "Semua Status Bayar"
 
-    # 6. Filter Status Kunjungan / Tindak Lanjut
+    # 6. Filter Status Tindak Lanjut
     if 'status_tindak_lanjut' in df.columns:
         val_tl = ["Semua Status TL"] + sorted([str(x) for x in df['status_tindak_lanjut'].dropna().unique()])
         selected_tl = st.sidebar.selectbox("Status Tindak Lanjut:", val_tl)
@@ -132,7 +144,7 @@ else:
     cari_kata = st.sidebar.text_input("Cari Plat / Nama:")
 
     # ---------------------------------------------------
-    # 4. TERAPKAN FILTER KE DATASET
+    # 5. TERAPKAN FILTER
     # ---------------------------------------------------
     df_filtered = df.copy()
     
@@ -156,7 +168,7 @@ else:
         df_filtered = df_filtered[cond_plat | cond_nama]
 
     # ---------------------------------------------------
-    # 5. METRIK UTAMA & KPI OPERASIONAL
+    # 6. RINGKASAN METRIK
     # ---------------------------------------------------
     total_kendaraan = len(df_filtered)
 
@@ -215,7 +227,7 @@ else:
     st.markdown("---")
 
     # ---------------------------------------------------
-    # 6. MATRIKS DETAIL: GOLONGAN & JENIS PEMILIK
+    # 7. MATRIKS DETAIL: GOLONGAN & JENIS PEMILIK
     # ---------------------------------------------------
     st.subheader("📋 Matriks Detail: Golongan & Jenis Pemilik")
     
@@ -227,7 +239,7 @@ else:
         if not df_filtered.empty and gol_col:
             df_gol = df_filtered[gol_col].value_counts().reset_index()
             df_gol.columns = ['Golongan', 'Jumlah Unit']
-            st.dataframe(df_gol, width='stretch', hide_index=True)
+            st.dataframe(df_gol, use_container_width=True, hide_index=True)
         else:
             st.info("Data golongan tidak tersedia.")
             
@@ -236,14 +248,14 @@ else:
         if not df_filtered.empty and 'pemilik_jenis' in df_filtered.columns:
             df_pemilik = df_filtered['pemilik_jenis'].value_counts().reset_index()
             df_pemilik.columns = ['Jenis Pemilik', 'Jumlah Unit']
-            st.dataframe(df_pemilik, width='stretch', hide_index=True)
+            st.dataframe(df_pemilik, use_container_width=True, hide_index=True)
         else:
             st.info("Data jenis pemilik tidak tersedia.")
 
     st.markdown("---")
 
     # ---------------------------------------------------
-    # 7. VISUALISASI GRAFIK
+    # 8. VISUALISASI GRAFIK
     # ---------------------------------------------------
     st.subheader("📈 Visualisasi Grafik Analisis")
     
@@ -263,7 +275,7 @@ else:
                 color_discrete_sequence=px.colors.qualitative.Set2
             )
             fig_grouped.update_traces(textposition='outside')
-            st.plotly_chart(fig_grouped, width='stretch')
+            st.plotly_chart(fig_grouped, use_container_width=True)
         else:
             st.info("Data tidak mencukupi untuk bagan ini.")
 
@@ -282,14 +294,14 @@ else:
                 text='Jumlah'
             )
             fig_samsat.update_layout(yaxis={'categoryorder':'total ascending'})
-            st.plotly_chart(fig_samsat, width='stretch')
+            st.plotly_chart(fig_samsat, use_container_width=True)
         else:
             st.info("Kolom nama_samsat tidak ditemukan.")
 
     st.markdown("---")
 
     # ---------------------------------------------------
-    # 8. TABEL DETAIL & DOWNLOAD
+    # 9. TABEL DETAIL & DOWNLOAD EXCEL (TANPA CSV)
     # ---------------------------------------------------
     st.subheader("📋 Tabel Detail Kendaraan")
     st.info("💡 **Tips:** Klik judul kolom pada tabel untuk mengurutkan (sort) data secara instan.")
@@ -300,36 +312,28 @@ else:
         'kelompok_selisih_hari_tunggakan', 'status_tindak_lanjut', 'status_bayar', 'prioritas'
     ] if c in df_filtered.columns]
     
-    st.dataframe(df_filtered[kolom_tampilan], width='stretch')
+    st.dataframe(df_filtered[kolom_tampilan], use_container_width=True)
     
     st.markdown("### 📥 Download Hasil Filter Data")
-    dl1, dl2 = st.columns(2)
     
-    with dl1:
-        try:
-            buffer = io.BytesIO()
-            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                df_filtered.to_excel(writer, index=False, sheet_name='Data_Tunggakan')
-            st.download_button(
-                label="📊 Download File Excel (.xlsx)",
-                data=buffer.getvalue(),
-                file_name="Hasil_Filter_Tunggakan.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-        except Exception:
-            st.warning("Pustaka 'openpyxl' diperlukan untuk ekspor Excel.")
-            
-    with dl2:
-        csv_data = df_filtered.to_csv(index=False).encode('utf-8')
+    # Menghapus blok kode CSV dan memusatkan tombol Excel
+    try:
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            df_filtered.to_excel(writer, index=False, sheet_name='Data_Tunggakan')
+        
         st.download_button(
-            label="📄 Download File CSV (.csv)",
-            data=csv_data,
-            file_name="data_tunggakan_filtered.csv",
-            mime="text/csv"
+            label="📊 Download File Excel (.xlsx)",
+            data=buffer.getvalue(),
+            file_name="Hasil_Filter_Tunggakan.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True # Membuat tombol lebar
         )
+    except Exception:
+        st.warning("⚠️ Pustaka 'openpyxl' diperlukan untuk ekspor Excel. Pastikan openpyxl ada di file requirements.txt Anda.")
 
 # ---------------------------------------------------
-# 9. COPYRIGHT FOOTER
+# 10. COPYRIGHT FOOTER
 # ---------------------------------------------------
 st.markdown("---")
 st.markdown(
